@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: abstractqueue
+Version: 1.3.0
+Summary: Queuing tools for python
+Home-page: https://github.com/owlint/abstractqueue/
+Author: Laurent Evrard
+License: Apache License 2.0"
+Description: Queuing tools for python
+Platform: UNKNOWN
+Classifier: Programming Language :: Python
+Classifier: Development Status :: 1 - Planning
+Classifier: License :: OSI Approved
+Classifier: Natural Language :: French
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Communications

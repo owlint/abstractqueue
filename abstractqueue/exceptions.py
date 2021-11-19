@@ -1,0 +1,2 @@
+class EmptyQueueException(Exception):
+    pass
