@@ -1,10 +1,11 @@
 import abc
-from threading import Thread
 import time
+from threading import Thread
 from typing import Any
-from redis import StrictRedis
-import pika
 from uuid import uuid4
+
+import pika
+from redis import StrictRedis
 
 from .exceptions import EmptyQueueException
 
@@ -81,16 +82,12 @@ class InMemoryQueue(Queue):
     def __len__(self):  # noqa: D105
         return len(self.__queue)
 
-    def put(
-        self, element: Any, serializer: callable = None
-    ) -> None:  # noqa: D102
+    def put(self, element: Any, serializer: callable = None) -> None:  # noqa: D102
         if serializer is not None:
             element = serializer(element)
         self.__queue.insert(0, element)
 
-    def get(
-        self, deserializer: callable = None, timeout=5
-    ) -> Any:  # noqa: D102
+    def get(self, deserializer: callable = None, timeout=5) -> Any:  # noqa: D102
         for _ in range(timeout):
             try:
                 element = self.__queue.pop()
@@ -111,26 +108,22 @@ class RedisQueue(Queue):
     def __len__(self):  # noqa: D105
         return self.__redis.llen(self.name)
 
-    def put(
-        self, element: Any, serializer: callable = None
-    ) -> None:  # noqa: D102
+    def put(self, element: Any, serializer: callable = None) -> None:  # noqa: D102
         if serializer is not None:
             element = serializer(element)
 
         if not isinstance(element, bytes):
-            element = bytes(element, "utf-8")
+            raise ValueError(
+                f"element must be an instance of byte, got {type(element)}"
+            )
 
         self.__redis.lpush(self.name, element)
 
-    def get(
-        self, deserializer: callable = None, timeout=5
-    ) -> Any:  # noqa: D102
+    def get(self, deserializer: callable = None, timeout=5) -> Any:  # noqa: D102
         for _ in range(timeout):
-            if (
-                self.__redis.rpoplpush(self.name, self.__consumer_id)
-                is not None
-            ):
-                element = self.__redis.lpop(self.__consumer_id).decode("utf8")
+            if self.__redis.rpoplpush(self.name, self.__consumer_id) is not None:
+                element = self.__redis.lpop(self.__consumer_id)
+
                 if deserializer is None:
                     return element
                 else:
@@ -141,9 +134,7 @@ class RedisQueue(Queue):
 
 
 class RabbitMQueue(Queue):
-    def __init__(
-        self, name, address, username=None, password=None
-    ):  # noqa: D107
+    def __init__(self, name, address, username=None, password=None):  # noqa: D107
         super().__init__(name)
         credentials = None
         if username is not None and password is not None:
@@ -154,9 +145,7 @@ class RabbitMQueue(Queue):
         else:
             self.__parameters = pika.ConnectionParameters(host=address)
 
-    def put(
-        self, element: Any, serializer: callable = None
-    ) -> None:  # noqa: D102
+    def put(self, element: Any, serializer: callable = None) -> None:  # noqa: D102
         if serializer is not None:
             element = serializer(element)
         assert isinstance(element, str)
@@ -171,23 +160,17 @@ class RabbitMQueue(Queue):
             exchange="",
             routing_key=self.name,
             body=message,
-            properties=pika.BasicProperties(
-                delivery_mode=2  # make message persistent
-            ),
+            properties=pika.BasicProperties(delivery_mode=2),  # make message persistent
         )
         connection.close()
 
-    def get(
-        self, deserializer: callable = None, timeout=5
-    ) -> Any:  # noqa: D102
+    def get(self, deserializer: callable = None, timeout=5) -> Any:  # noqa: D102
         raise NotImplementedError(
             "Get methode is not implemented forRabbitMQueue. "
             "Use consumer or start_consuming method instead"
         )
 
-    def start_consuming(
-        self, callback: callable, deserializer: callable = None
-    ):
+    def start_consuming(self, callback: callable, deserializer: callable = None):
         assert callable(callback)
 
         def _callback(channel, method, properties, body):
@@ -225,9 +208,7 @@ class RabbitMQueue(Queue):
             channel.queue_declare(queue=self.name, durable=True)
 
             channel.basic_qos(prefetch_count=1)
-            channel.basic_consume(
-                queue=self.name, on_message_callback=_callback
-            )
+            channel.basic_consume(queue=self.name, on_message_callback=_callback)
             channel.start_consuming()
 
         thread = Thread(target=_consume)
